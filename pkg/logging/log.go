@@ -33,9 +33,16 @@ const (
 	FATAL
 )
 
-func init() {
-	filePath := getLogFileFullPath()
-	F = openLogFile(filePath)
+func Setup() {
+	// filePath := getLogFileFullPath()
+	// F = openLogFile(filePath)
+	var err error
+	filePath := getLogFilePath()
+	fileName := getLogFileName()
+	F, err = openLogFile(fileName, filePath)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	//创建新的日志记录器 logger，并将其绑定到日志文件 F 上
 	logger = log.New(F, DefaultPrefix, log.LstdFlags)

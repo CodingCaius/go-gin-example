@@ -11,7 +11,7 @@ import (
 )
 
 // 用于签名和验证JWT的密钥
-var jwtSecret = []byte(setting.JwtSecret)
+var jwtSecret = []byte(setting.AppSetting.JwtSecret)
 
 type Claims struct {
 	Username           string `json:"username"`

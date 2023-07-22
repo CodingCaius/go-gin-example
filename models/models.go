@@ -22,25 +22,32 @@ type Model struct {
 	DeletedOn  int `json:"deleted_on"`
 }
 
-func init() {
-	var (
-		err                                               error
-		dbType, dbName, user, password, host, tablePrefix string
-	)
+func Setup() {
+	// var (
+	// 	err                                               error
+	// 	dbType, dbName, user, password, host, tablePrefix string
+	// )
 
-	sec, err := setting.Cfg.GetSection("database")
-	if err != nil {
-		log.Fatal(2, "Fail to get section 'database':  %v", err)
-	}
+	// sec, err := setting.Cfg.GetSection("database")
+	// if err != nil {
+	// 	log.Fatal(2, "Fail to get section 'database':  %v", err)
+	// }
 
-	dbType = sec.Key("TYPE").String()
-	dbName = sec.Key("NAME").String()
-	user = sec.Key("USER").String()
-	password = sec.Key("PASSWORD").String()
-	host = sec.Key("HOST").String()
-	tablePrefix = sec.Key("TABLE_PREFIX").String()
+	// dbType = sec.Key("TYPE").String()
+	// dbName = sec.Key("NAME").String()
+	// user = sec.Key("USER").String()
+	// password = sec.Key("PASSWORD").String()
+	// host = sec.Key("HOST").String()
+	// tablePrefix = sec.Key("TABLE_PREFIX").String()
 
-	db, err = gorm.Open(dbType, fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local", user, password, host, dbName))
+	// db, err = gorm.Open(dbType, fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local", user, password, host, dbName))
+
+	var err error
+	db, err = gorm.Open(setting.DatabaseSetting.Type, fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local",
+		setting.DatabaseSetting.User,
+		setting.DatabaseSetting.Password,
+		setting.DatabaseSetting.Host,
+		setting.DatabaseSetting.Name))
 
 	if err != nil {
 		log.Println(err)
@@ -48,7 +55,7 @@ func init() {
 
 	//设置了一个回调函数，用于自定义表名的生成规则
 	gorm.DefaultTableNameHandler = func(db *gorm.DB, defaultTableName string) string {
-		return tablePrefix + defaultTableName
+		return setting.DatabaseSetting.TablePrefix + defaultTableName
 	}
 
 	db.SingularTable(true)
@@ -93,7 +100,6 @@ func updateTimeStampForUpdateCallback(scope *gorm.Scope) {
 	}
 }
 
-
 func deleteCallback(scope *gorm.Scope) {
 	if !scope.HasError() {
 		var extraOption string
@@ -108,28 +114,28 @@ func deleteCallback(scope *gorm.Scope) {
 		if !scope.Search.Unscoped && hasDeletedOnField {
 			//构造一个UPDATE语句，将指定表中的"DeletedOn"字段更新为当前时间戳值
 			scope.Raw(fmt.Sprintf(
-                "UPDATE %v SET %v=%v%v%v",
-                scope.QuotedTableName(),
-                scope.Quote(deletedOnField.DBName),
-                scope.AddToVars(time.Now().Unix()),
-                addExtraSpaceIfExist(scope.CombinedConditionSql()),
-                addExtraSpaceIfExist(extraOption),
-            )).Exec()
+				"UPDATE %v SET %v=%v%v%v",
+				scope.QuotedTableName(),
+				scope.Quote(deletedOnField.DBName),
+				scope.AddToVars(time.Now().Unix()),
+				addExtraSpaceIfExist(scope.CombinedConditionSql()),
+				addExtraSpaceIfExist(extraOption),
+			)).Exec()
 		} else {
-            scope.Raw(fmt.Sprintf(
-                "DELETE FROM %v%v%v",
-                scope.QuotedTableName(),
-                addExtraSpaceIfExist(scope.CombinedConditionSql()),
-                addExtraSpaceIfExist(extraOption),
-            )).Exec()
-        }
+			scope.Raw(fmt.Sprintf(
+				"DELETE FROM %v%v%v",
+				scope.QuotedTableName(),
+				addExtraSpaceIfExist(scope.CombinedConditionSql()),
+				addExtraSpaceIfExist(extraOption),
+			)).Exec()
+		}
 	}
 }
 
-//用于在字符串前面添加一个空格
+// 用于在字符串前面添加一个空格
 func addExtraSpaceIfExist(str string) string {
-    if str != "" {
-        return " " + str
-    }
-    return ""
+	if str != "" {
+		return " " + str
+	}
+	return ""
 }
