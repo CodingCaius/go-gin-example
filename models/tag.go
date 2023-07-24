@@ -15,34 +15,53 @@ type Tag struct {
 	State      int    `json:"state"`
 }
 
-func GetTags(pageNum int, pageSize int, maps interface{}) (tags []Tag) {
-	db.Where(maps).Offset(pageNum).Limit(pageSize).Find(&tags)
+func GetTags(pageNum int, pageSize int, maps interface{}) ([]Tag, error) {
+	var tags []Tag
+	err := db.Where(maps).Offset(pageNum).Limit(pageSize).Find(&tags).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
 
-	return
+	return tags, nil
 }
 
-func GetTagTotal(maps interface{}) (count int) {
-	db.Model(&Tag{}).Where(maps).Count(&count)
+func GetTagTotal(maps interface{}) (int, error) {
+	var count int
+	if err := db.Model(&Tag{}).Where(maps).Count(&count).Error; err != nil {
+		return 0, err
+	}
 
-	return
+	return count, nil
 }
 
 // 检查数据库中是否存在指定名称的标签
-func ExistTagByName(name string) bool {
+func ExistTagByName(name string) (bool ,error) {
 	var tag Tag
-	db.Select("id").Where("name = ?", name).First(&tag)
-	return  tag.ID > 0
+	err := db.Select("id").Where("name = ? AND deleted_on = ? ", name, 0).First(&tag).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return false, err
+	}
+
+	if tag.ID > 0 {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // 向数据库中添加新的标签
-func AddTag(name string, state int, createdBy string) bool {
-	db.Create(&Tag{
+func AddTag(name string, state int, createdBy string) error {
+	tag := Tag{
 		Name:      name,
 		State:     state,
 		CreatedBy: createdBy,
-	})
+	}
 
-	return true
+	if err := db.Create(&tag).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // 设置时间戳
@@ -60,28 +79,43 @@ func (tag *Tag) BeforeUpdate(scope *gorm.Scope) error {
 }
 
 // 检查数据库中是否存在指定id的标签
-func ExistTagByID(id int) bool {
+func ExistTagByID(id int) (bool, error) {
 	var tag Tag
-	db.Select("id").Where("id = ?", id).First(&tag)
+	err := db.Select("id").Where("id = ? AND deleted_on = ? ", id, 0).First(&tag).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return false, err
+	}
 
-	return tag.ID > 0
+	if tag.ID > 0 {
+		return true, nil
+	}
+
+	return false, nil
 }
 
-func DeleteTag(id int) bool {
-	db.Where("id = ?", id).Delete(&Tag{})
-	return true
+
+func DeleteTag(id int) error {
+	if err := db.Where("id = ?", id).Delete(&Tag{}).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func EditTag(id int, data interface{}) bool {
-	db.Model(&Tag{}).Where("id = ?", id).Updates(data)
-	return true
+func EditTag(id int, data interface{}) error {
+	if err := db.Model(&Tag{}).Where("id = ? AND deleted_on = ? ", id, 0).Updates(data).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 
 
 //硬删除要使用 Unscoped()，这是 GORM 的约定
-func CleanAllTag() bool {
-	db.Unscoped().Where("deleted_on != ? ", 0).Delete(&Tag{})
+func CleanAllTag() (bool, error) {
+	if err := db.Unscoped().Where("deleted_on != ? ", 0).Delete(&Tag{}).Error; err != nil {
+		return false, err
+	}
 
-	return true
+	return true, nil
 }
